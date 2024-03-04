@@ -32,8 +32,7 @@ from linebot.v3.messaging import (
     AudioMessage,
     QuickReply,
     QuickReplyItem,
-    PostbackAction,
-    MessageAction
+    PostbackAction
 
 )
 
@@ -90,21 +89,23 @@ def message_text(event):
     
     for res in translation_result:
         returnMessages.append(TextMessage(text=f"{res['text']}"))
-        # if res['lang'] == 'en':
-        #     duration = azure_speech(res['text'])
-        #     returnMessages.append(AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/outputaudio.wav", duration=duration))
-    returnMessages.append(
-        TextMessage(
-            text='需要語音檔嗎？\n（記得定期清理檔案）',
-            quick_reply=QuickReply(
-                items=[
-                    QuickReplyItem(
-                        action=PostbackAction(label="英文", data="英文")
-                    ),
-                    QuickReplyItem(
-                        action=PostbackAction(label="日文", data="日文")
-                    )
-            ])))
+        
+    if len(translation_result) > 1:
+        returnMessages.append(
+            TextMessage(
+                text='需要語音檔嗎？\n（定期清理音檔可省空間！）',
+                quick_reply=QuickReply(
+                    items=[
+                        QuickReplyItem(
+                            action=PostbackAction(label="英文", data="en")
+                        ),
+                        QuickReplyItem(
+                            action=PostbackAction(label="日文", data="ja")
+                        ),
+                         QuickReplyItem(
+                            action=PostbackAction(label="都要", data="both")
+                        )
+                ])))
 
 
     with ApiClient(configuration) as api_client:
@@ -120,20 +121,33 @@ def handle_postback(event: PostbackEvent):
     global translation_result
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        if event.postback.data == '英文':
-            duration = azure_speech(translation_result[0])
+        if event.postback.data == 'en':
+            duration = azure_speech(translation_result[0]['text'])
             line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
-                    messages=[AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/outputaudio.wav", duration=duration)]
+                    messages=[AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/enaudio.wav", duration=duration)]
+                )
+            )
+        elif event.postback.data == 'ja':
+            duration = azure_speech2(translation_result[1]['text'])
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/jaaudio.wav", duration=duration)]
                 )
             )
         else:
-            duration = azure_speech(translation_result[1])
+            duration1 = azure_speech(translation_result[0]['text'])
+            duration2 = azure_speech2(translation_result[1]['text'])
+            audiolist = [
+                AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/enaudio.wav", duration=duration1),
+                AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/jaaudio.wav", duration=duration2)
+            ]
             line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
-                    messages=[AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/outputaudio.wav", duration=duration)]
+                    messages=audiolist
                 )
             )
         
@@ -142,20 +156,40 @@ def handle_postback(event: PostbackEvent):
 def azure_speech(user_input):
     # The language of the voice that speaks.
     # if(user_input)
-    if user_input['lang'] == 'en':
-        speech_config.speech_synthesis_voice_name ='en-US-JennyNeural'
-    else:
-        speech_config.speech_synthesis_voice_name = "ja-JP-NanamiNeural"
-    file_name = "outputaudio.wav"
+    
+    speech_config.speech_synthesis_voice_name ='en-US-JennyNeural'
+    file_name = "enaudio.wav"
     file_config = speechsdk.audio.AudioOutputConfig(filename='static/'+file_name)
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=file_config)
 
     # Receives a text from console input and synthesizes it to wave file.
-    result = speech_synthesizer.speak_text_async(user_input['text']).get()
+    result = speech_synthesizer.speak_text_async(user_input).get()
     # Check result
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print("Speech synthesized for text [{}], and the audio was saved to [{}]".format(user_input, file_name))
-        audio_duration = round(librosa.get_duration(path='static/outputaudio.wav')*1000)
+        audio_duration = round(librosa.get_duration(path='static/enaudio.wav')*1000)
+        # print(audio_duration)
+        return audio_duration
+    elif result.reason == speechsdk.ResultReason.Canceled:
+        cancellation_details = result.cancellation_details
+        # print("Speech synthesis canceled: {}".format(cancellation_details.reason))
+        if cancellation_details.reason == speechsdk.CancellationReason.Error:
+            print("Error details: {}".format(cancellation_details.error_details))
+
+def azure_speech2(user_input):
+    # The language of the voice that speaks.
+    # if(user_input)
+    speech_config.speech_synthesis_voice_name = "ja-JP-NanamiNeural"
+    file_name = "jaaudio.wav"
+    file_config = speechsdk.audio.AudioOutputConfig(filename='static/'+file_name)
+    speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=file_config)
+
+    # Receives a text from console input and synthesizes it to wave file.
+    result = speech_synthesizer.speak_text_async(user_input).get()
+    # Check result
+    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+        print("Speech synthesized for text [{}], and the audio was saved to [{}]".format(user_input, file_name))
+        audio_duration = round(librosa.get_duration(path='static/jaaudio.wav')*1000)
         # print(audio_duration)
         return audio_duration
     elif result.reason == speechsdk.ResultReason.Canceled:
