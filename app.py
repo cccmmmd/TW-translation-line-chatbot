@@ -94,7 +94,7 @@ def message_text(event):
     if len(translation_result) > 1:
         returnMessages.append(
             TextMessage(
-                text='需要語音檔嗎？\n（記得定期刪除音檔省空間喔！）',
+                text='需要語音檔嗎？\n（定期去右上角[設置]清音檔可省空間！）',
                 quick_reply=QuickReply(
                     items=[
                         QuickReplyItem(
