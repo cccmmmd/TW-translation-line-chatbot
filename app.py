@@ -1,5 +1,6 @@
 import sys
 import configparser
+import demoji
 
 # Azure Speech
 import os
@@ -84,8 +85,8 @@ translation_result = []
 def message_text(event):
     global translation_result
     returnMessages = []
-    translation_result = azure_translate(event.message.text)
-    # print(translation_result)
+    translation_result = azure_translate(deEmojify(event.message.text))
+    print(translation_result)
     
     for res in translation_result:
         returnMessages.append(TextMessage(text=f"{res['text']}"))
@@ -93,7 +94,7 @@ def message_text(event):
     if len(translation_result) > 1:
         returnMessages.append(
             TextMessage(
-                text='需要語音檔嗎？\n（定期清理音檔可省空間！）',
+                text='需要語音檔嗎？\n（記得定期刪除音檔省空間喔！）',
                 quick_reply=QuickReply(
                     items=[
                         QuickReplyItem(
@@ -140,6 +141,7 @@ def handle_postback(event: PostbackEvent):
         else:
             duration1 = azure_speech(translation_result[0]['text'])
             duration2 = azure_speech2(translation_result[1]['text'])
+            
             audiolist = [
                 AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/enaudio.wav", duration=duration1),
                 AudioMessage(originalContentUrl=config["Deploy"]["URL"]+"/static/jaaudio.wav", duration=duration2)
@@ -209,7 +211,7 @@ def azure_translate(user_input):
         input_text_elements = [ InputTextItem(text = user_input) ]
 
         response = text_translator.translate(content = input_text_elements, to = target_languages)
-        print(response)
+        # print(response)
         translation = response[0] if response else None
 
         if translation:
@@ -225,6 +227,9 @@ def azure_translate(user_input):
     except HttpResponseError as exception:
         print(f"Error Code: {exception.error}")
         print(f"Message: {exception.error.message}")
+        
+def deEmojify(text):
+    return demoji.replace(text, '')
 
 if __name__ == "__main__":
     app.run()
