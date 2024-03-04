@@ -4,3 +4,4 @@ configparser
 azure-ai-translation-text
 azure-cognitiveservices-speech
 librosa
+demoji
