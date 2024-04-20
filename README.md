@@ -2,6 +2,7 @@
 
 使用技術：   
 * LINE Bot
+* LINE Bot quick reply
 * Python Flask
 * Azure AI Translation
 * Azure Speech
